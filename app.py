@@ -1,6 +1,5 @@
 import streamlit as st
 import re
-import os
 from dotenv import load_dotenv
 from llm import generate_tech_questions, parse_tech_stack
 
@@ -14,7 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Constants
 STEP_LABELS = {
     "form": "📝 Candidate Information",
     "tech_stack": "🛠️ Technical Skills",
@@ -23,7 +21,6 @@ STEP_LABELS = {
     "end": "🏁 Complete"
 }
 
-# Initialize session state
 def init_session_state():
     if "step" not in st.session_state:
         st.session_state.step = "form"
@@ -40,7 +37,6 @@ def init_session_state():
 
 init_session_state()
 
-# UI Components
 def show_progress(current, total):
     progress = current / total
     st.progress(progress)
@@ -53,26 +49,20 @@ def validate_phone(phone):
     return re.match(r"^\+?[\d\s-]{10,15}$", phone.strip())
 
 def generate_summary_text():
-    """Generate a text summary of the candidate's application"""
     summary = []
     summary.append("TALENTSCOUT APPLICATION SUMMARY")
     summary.append("\n=== CANDIDATE INFORMATION ===")
     for key, value in st.session_state.candidate_info.items():
         summary.append(f"{key.title()}: {value}")
-    
     summary.append("\n=== TECHNICAL SKILLS ===")
     summary.append(", ".join([tech for tech in st.session_state.tech_stack if len(tech) > 1]))
-    
     summary.append("\n=== QUESTIONS & ANSWERS ===")
     for i, (q, a) in enumerate(zip(st.session_state.questions, st.session_state.answers)):
         summary.append(f"\nQ{i+1}: {q}")
         summary.append(f"A: {a}")
-    
     return "\n".join(summary)
 
-# --------------------------
 # Step 1: Candidate Information
-# --------------------------
 if st.session_state.step == "form":
     st.title("Candidate Information")
     st.write("Welcome to TalentScout! Let's start with some basic information.")
@@ -93,19 +83,14 @@ if st.session_state.step == "form":
 
     if submitted:
         errors = []
-        
         if not re.match(r"^[A-Za-z ]{2,50}$", full_name.strip()):
             errors.append("Please enter a valid full name (2-50 letters)")
-        
         if not validate_email(email):
             errors.append("Please enter a valid email address")
-            
         if not validate_phone(phone):
             errors.append("Please enter a valid phone number (10-15 digits)")
-            
         if not role.strip():
             errors.append("Please specify desired position(s)")
-            
         if not location.strip():
             errors.append("Please enter your current location")
 
@@ -124,9 +109,7 @@ if st.session_state.step == "form":
             st.session_state.step = "tech_stack"
             st.rerun()
 
-# --------------------------
 # Step 2: Technical Skills
-# --------------------------
 elif st.session_state.step == "tech_stack":
     st.title("Technical Skills Assessment")
     st.success(f"Hello {st.session_state.candidate_info['name']}! Let's discuss your technical skills.")
@@ -156,14 +139,10 @@ elif st.session_state.step == "tech_stack":
                 st.session_state.current_question_index = 0
                 st.rerun()
 
-# --------------------------
 # Step 3: Technical Questions
-# --------------------------
-
 elif st.session_state.step == "questions":
     st.title("Technical Assessment")
     
-    # Generate questions if not already done
     if not st.session_state.questions:
         with st.spinner("Generating customized questions based on your skills..."):
             try:
@@ -171,11 +150,11 @@ elif st.session_state.step == "questions":
                     st.session_state.tech_stack,
                     st.session_state.candidate_info["experience"]
                 )
-                # Filter out any empty or malformed questions
                 st.session_state.questions = [q for q in questions if q and len(q.split(':')) == 2]
                 if not st.session_state.questions:
                     raise ValueError("No valid questions generated")
             except Exception as e:
+                print("Error generating questions:", e)
                 st.error("Failed to generate questions. Please try again with different technologies.")
                 st.session_state.step = "tech_stack"
                 st.rerun()
@@ -185,7 +164,6 @@ elif st.session_state.step == "questions":
 
     if current_idx < total_questions:
         show_progress(current_idx + 1, total_questions)
-        
         current_question = st.session_state.questions[current_idx]
         tech, question = current_question.split(':', 1)
         st.subheader(f"Question {current_idx + 1}/{total_questions} ({tech.strip()})")
@@ -207,14 +185,12 @@ elif st.session_state.step == "questions":
         with cols[1]:
             next_disabled = not answer.strip()
             if st.button("Next →", disabled=next_disabled, key=f"next_{current_idx}"):
-                # Ensure answers list is properly updated
                 while len(st.session_state.answers) <= current_idx:
                     st.session_state.answers.append("")
                 st.session_state.answers[current_idx] = answer.strip()
                 st.session_state.current_question_index += 1
                 st.rerun()
         
-        # Early exit option
         with st.expander("Finish early"):
             if st.button("Complete Assessment", key=f"complete_{current_idx}"):
                 st.session_state.step = "review"
@@ -223,9 +199,7 @@ elif st.session_state.step == "questions":
         st.session_state.step = "review"
         st.rerun()
 
-# --------------------------
 # Step 4: Review Answers
-# --------------------------
 elif st.session_state.step == "review":
     st.title("Review Your Answers")
     st.write("Please review your responses before submission.")
@@ -235,7 +209,7 @@ elif st.session_state.step == "review":
             st.write(answer)
     
     if st.button("Submit Assessment"):
-        # In a real app, you would save to database here
+        # TODO: Save to database or file
         st.session_state.step = "end"
         st.rerun()
     
@@ -244,11 +218,7 @@ elif st.session_state.step == "review":
         st.session_state.step = "questions"
         st.rerun()
 
-# ... (keep all imports and initial configuration the same until the completion step)
-
-# --------------------------
 # Step 5: Completion
-# --------------------------
 elif st.session_state.step == "end":
     st.title("🎉 Assessment Complete")
     st.markdown("""
@@ -258,13 +228,11 @@ elif st.session_state.step == "end":
 </div>
 """, unsafe_allow_html=True)
     
-    # Compact success message
     st.success("""
     **Thank you for completing the assessment!**  
-    We'll review your responses and contact you within 3-5 business days.
+    We'll review your responses and contact you within 3–5 business days.
     """)
     
-    # Compact summary card
     with st.container(border=True):
         st.markdown(f"""
         **Candidate:** {st.session_state.candidate_info["name"]}  
@@ -273,7 +241,6 @@ elif st.session_state.step == "end":
         **Location:** {st.session_state.candidate_info["location"]}
         """)
         
-        # Fixed technical skills display
         tech_stack = [tech for tech in st.session_state.tech_stack if len(tech) > 1]
         if tech_stack:
             st.markdown("**Technical Skills:** " + ", ".join(tech_stack))
@@ -282,7 +249,6 @@ elif st.session_state.step == "end":
         
         st.markdown(f"**Questions Completed:** {len(st.session_state.answers)}/{len(st.session_state.questions)}")
 
-    # Download button
     st.download_button(
         label="📄 Download Full Summary",
         data=generate_summary_text(),
@@ -291,9 +257,7 @@ elif st.session_state.step == "end":
         use_container_width=True
     )
     
-    # Restart button - FIXED VERSION
     if st.button("🔄 Start New Assessment", use_container_width=True, key="restart_button"):
-        # Clear the entire session state and reinitialize
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         init_session_state()
